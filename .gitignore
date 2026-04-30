@@ -1,3 +1,18 @@
+# Virtual environment
+.venv/
+
+# Python
 __pycache__/
 *.pyc
-.venv/
+
+# Local database
+*.db
+
+# Build / packaging
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
