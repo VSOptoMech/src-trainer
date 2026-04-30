@@ -1,0 +1,82 @@
+{
+  "id": "routine_radio_check",
+  "title": "Routine radio check",
+  "description": "Training scenario: Routine radio check",
+  "category": "routine",
+  "difficulty": "beginner",
+  "situation": "Fictional vessel SEA LARK practicing routine radio check near Harbor Point.",
+  "learning_objectives": [
+    "Use correct call sequence",
+    "Transmit clearly",
+    "Complete required channel/procedure actions"
+  ],
+  "pass_score": 70,
+  "steps": [
+    {
+      "title": "Prepare radio",
+      "expected_actions": [
+        {
+          "action": "POWER_ON"
+        },
+        {
+          "action": "PRESS_CH16"
+        }
+      ],
+      "required_actions": [
+        "POWER_ON",
+        "PRESS_CH16"
+      ],
+      "hints": [
+        "Turn on set first",
+        "Use Ch16 for initial calling"
+      ],
+      "feedback_correct": "Good setup.",
+      "feedback_incorrect": "Check startup and channel selection.",
+      "score_weight": 30
+    },
+    {
+      "title": "Transmit procedure",
+      "expected_actions": [
+        {
+          "action": "HOLD_PTT"
+        },
+        {
+          "action": "SPEAK_PHRASE",
+          "value": "Routine radio check"
+        },
+        {
+          "action": "RELEASE_PTT"
+        }
+      ],
+      "required_actions": [
+        "HOLD_PTT",
+        "SPEAK_PHRASE",
+        "RELEASE_PTT"
+      ],
+      "hints": [
+        "Hold PTT while speaking"
+      ],
+      "feedback_correct": "Transmission procedure correct.",
+      "feedback_incorrect": "PTT or phrase procedure incorrect.",
+      "score_weight": 40
+    },
+    {
+      "title": "Follow-up action",
+      "expected_actions": [
+        {
+          "action": "SET_CHANNEL",
+          "value": "16"
+        }
+      ],
+      "required_actions": [
+        "SET_CHANNEL"
+      ],
+      "hints": [
+        "Confirm working channel"
+      ],
+      "feedback_correct": "Scenario complete.",
+      "feedback_incorrect": "Follow-up action missing.",
+      "score_weight": 30
+    }
+  ]
+}

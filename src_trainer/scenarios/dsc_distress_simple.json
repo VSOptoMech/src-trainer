@@ -1,0 +1,77 @@
+{
+  "id": "dsc_distress_simple",
+  "title": "DSC distress (simplified)",
+  "description": "Training scenario: DSC distress (simplified)",
+  "category": "dsc",
+  "difficulty": "intermediate",
+  "situation": "Fictional vessel SEA LARK practicing dsc distress (simplified) near Harbor Point.",
+  "learning_objectives": [
+    "Use correct call sequence",
+    "Transmit clearly",
+    "Complete required channel/procedure actions"
+  ],
+  "pass_score": 70,
+  "steps": [
+    {
+      "title": "Prepare radio",
+      "expected_actions": [
+        {
+          "action": "POWER_ON"
+        },
+        {
+          "action": "PRESS_CH16"
+        }
+      ],
+      "required_actions": [
+        "POWER_ON",
+        "PRESS_CH16"
+      ],
+      "hints": [
+        "Turn on set first",
+        "Use Ch16 for initial calling"
+      ],
+      "feedback_correct": "Good setup.",
+      "feedback_incorrect": "Check startup and channel selection.",
+      "score_weight": 30
+    },
+    {
+      "title": "Transmit procedure",
+      "expected_actions": [
+        {
+          "action": "OPEN_DISTRESS_COVER"
+        },
+        {
+          "action": "HOLD_DISTRESS"
+        }
+      ],
+      "required_actions": [
+        "OPEN_DISTRESS_COVER",
+        "HOLD_DISTRESS"
+      ],
+      "hints": [
+        "Open distress cover before pressing distress key"
+      ],
+      "feedback_correct": "Transmission procedure correct.",
+      "feedback_incorrect": "DSC distress key sequence incorrect.",
+      "score_weight": 40
+    },
+    {
+      "title": "Follow-up action",
+      "expected_actions": [
+        {
+          "action": "SET_CHANNEL",
+          "value": "16"
+        }
+      ],
+      "required_actions": [
+        "SET_CHANNEL"
+      ],
+      "hints": [
+        "Confirm working channel"
+      ],
+      "feedback_correct": "Scenario complete.",
+      "feedback_incorrect": "Follow-up action missing.",
+      "score_weight": 30
+    }
+  ]
+}
