@@ -10,6 +10,7 @@ from src_trainer.db import record_attempt
 from src_trainer.grading import grade_scenario
 from src_trainer.models import ActionEvent, RadioAction
 from src_trainer.resources import list_scenarios
+from src_trainer.components.radio_panel import RadioPanel
 
 
 def render() -> None:
@@ -90,9 +91,10 @@ def render() -> None:
         ui.checkbox("Test mode (random, no hints)", value=False, on_change=lambda e: test_mode.update({"value": bool(e.value)}))
         ui.button("Random scenario", on_click=lambda: set_scenario(random.choice(scenarios).id if scenarios else ""))
 
-    left = ui.column().classes("w-1/3")
-    center = ui.column().classes("w-1/3")
-    right = ui.column().classes("w-1/3")
+    with ui.row().classes("w-full items-start gap-4 wrap"):
+        left = ui.column().classes("w-full lg:w-1/4")
+        center = ui.column().classes("w-full lg:w-2/4")
+        right = ui.column().classes("w-full lg:w-1/4")
 
     def render_panels(summary=None) -> None:
         left.clear(); center.clear(); right.clear()
@@ -114,16 +116,22 @@ def render() -> None:
             if scenario.steps[step_idx].hints and not test_mode["value"]:
                 ui.label(f"Hints available: {len(scenario.steps[step_idx].hints)}")
         with center:
-            ui.label("Radio Controls").classes("text-h6")
-            for action in RadioAction:
-                if action == RadioAction.SPEAK_PHRASE:
-                    phrase = ui.input("Phrase")
-                    ui.button("Speak phrase", on_click=lambda p=phrase: add_action(RadioAction.SPEAK_PHRASE, p.value))
-                else:
-                    ui.button(action.value, on_click=lambda a=action: add_action(a))
-            ui.row().classes("gap-2")
-            ui.button("Next step", on_click=next_step)
-            ui.button("Finish scenario", on_click=finish)
+            ui.label("Radio Faceplate").classes("text-h6")
+            channel_display = "16" if step_idx == 0 else "72"
+            RadioPanel(
+                on_action=add_action,
+                channel=channel_display,
+                powered=True,
+                tx_active=False,
+                rx_active=True,
+                hi_power=True,
+                dsc_mode="WATCH" if not test_mode["value"] else "TEST",
+            ).render()
+            phrase = ui.input("Phrase to transmit").props("outlined")
+            ui.button("Speak phrase", on_click=lambda p=phrase: add_action(RadioAction.SPEAK_PHRASE, p.value)).classes("mt-2")
+            with ui.row().classes("gap-2 mt-2"):
+                ui.button("Next step", on_click=next_step)
+                ui.button("Finish scenario", on_click=finish)
         with right:
             ui.label("Transcript + Feedback").classes("text-h6")
             ui.label(f"Mistakes: {state['mistakes']}")
