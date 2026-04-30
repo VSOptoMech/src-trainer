@@ -1064,12 +1064,14 @@ source = { editable = "." }
 dependencies = [
     { name = "nicegui" },
     { name = "pydantic" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "nicegui" },
     { name = "pydantic" },
+    { name = "pyyaml" },
 ]
 
 [[package]]
