@@ -22,3 +22,6 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src_trainer*"]
+
+[tool.setuptools.package-data]
+"src_trainer.scenarios" = ["*.json"]

@@ -52,6 +52,12 @@ class StaticSmokeTests(unittest.TestCase):
         }:
             self.assertIn(expected, function_names)
 
+    def test_scenarios_packaged(self) -> None:
+        pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        package_data = pyproject.get("tool", {}).get("setuptools", {}).get("package-data", {})
+        self.assertIn("src_trainer.scenarios", package_data)
+        self.assertIn("*.json", package_data.get("src_trainer.scenarios", []))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,7 +3,8 @@
 from pathlib import Path
 import sqlite3
 
-DB_PATH = Path("src_trainer.db")
+_DB_DIR = Path.home() / ".local" / "share" / "src-trainer"
+DB_PATH = _DB_DIR / "src_trainer.db"
 
 
 def init_db() -> None:
