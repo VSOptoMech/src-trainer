@@ -1,0 +1,24 @@
+[project]
+name = "src-trainer"
+version = "0.1.0"
+description = "Local-first personal SRC (marine VHF radio) training scaffold built with NiceGUI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "nicegui",
+  "pydantic",
+]
+
+[project.scripts]
+src-trainer = "src_trainer.app:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src_trainer*"]
