@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import json
 import sqlite3
 
-_DB_DIR = Path.home() / ".local" / "share" / "src-trainer"
-DB_PATH = _DB_DIR / "src_trainer.db"
+from src_trainer.paths import get_db_path
+
+DB_PATH = get_db_path()
 
 
 def init_db() -> None:
