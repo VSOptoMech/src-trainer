@@ -10,7 +10,7 @@ from src_trainer.db import record_attempt
 from src_trainer.grading import grade_scenario
 from src_trainer.models import ActionEvent, RadioAction
 from src_trainer.resources import list_scenarios
-from src_trainer.components.radio_panel import RadioPanel
+from src_trainer.components.radio_panel import RadioPanel, RadioUiAction
 
 
 def render() -> None:
@@ -41,10 +41,21 @@ def render() -> None:
             return scenario_map[selected["id"]]
         return scenario_map[selected["id"]] if selected["id"] else None
 
-    def add_action(action: RadioAction, value: str | None = None) -> None:
+    UI_ACTION_MAP: dict[RadioUiAction, RadioAction] = {
+        RadioUiAction.SELECT_WORKING_CHANNEL: RadioAction.SET_CHANNEL,
+    }
+
+    def add_action(action: RadioAction | RadioUiAction, value: str | None = None) -> None:
         scenario = current_scenario()
         if not scenario:
             return
+        if isinstance(action, RadioUiAction):
+            mapped = UI_ACTION_MAP.get(action)
+            state["transcript"].append(f"UI action: {action.value}")
+            if mapped is None:
+                render_panels()
+                return
+            action = mapped
         step = int(state["step"])
         event = ActionEvent(action=action, value=value)
         state["actions"][step].append(event)

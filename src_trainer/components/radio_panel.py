@@ -3,10 +3,21 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from enum import StrEnum
 
 from nicegui import ui
 
 from src_trainer.models import RadioAction
+
+
+class RadioUiAction(StrEnum):
+    """UI-only controls emitted by the radio faceplate."""
+
+    CHANNEL_UP = "CHANNEL_UP"
+    CHANNEL_DOWN = "CHANNEL_DOWN"
+    MONITOR = "MONITOR"
+    CLOSE_DISTRESS_COVER = "CLOSE_DISTRESS_COVER"
+    SELECT_WORKING_CHANNEL = "SELECT_WORKING_CHANNEL"
 
 
 class RadioPanel:
@@ -15,7 +26,7 @@ class RadioPanel:
     def __init__(
         self,
         *,
-        on_action: Callable[[RadioAction, str | None], None],
+        on_action: Callable[[RadioAction | RadioUiAction, str | None], None],
         channel: str,
         powered: bool = True,
         tx_active: bool = False,
@@ -78,13 +89,13 @@ class RadioPanel:
                             ui.label("HI" if self.hi_power else "LO").classes("pill")
                         ui.label(f"DSC/MENU: {self.dsc_mode}").classes("text-xs")
                     with ui.row().classes("soft"):
-                        self._button("SCAN", RadioAction.CHANNEL_UP)
-                        self._button("WATCH", RadioAction.MONITOR)
+                        self._button("SCAN", RadioUiAction.CHANNEL_UP)
+                        self._button("WATCH", RadioUiAction.MONITOR)
                         self._button("MENU", RadioAction.OPEN_DISTRESS_COVER)
-                        self._button("BACK", RadioAction.CLOSE_DISTRESS_COVER)
+                        self._button("BACK", RadioUiAction.CLOSE_DISTRESS_COVER)
                     with ui.row().classes("round-wrap"):
                         self._button("VOL", RadioAction.POWER_ON, "round")
-                        self._button("SQL", RadioAction.MONITOR, "round")
+                        self._button("SQL", RadioUiAction.MONITOR, "round")
                     with ui.column().classes("speaker"):
                         for _ in range(56):
                             ui.html("<i></i>")
@@ -92,23 +103,23 @@ class RadioPanel:
                     self._button("RELEASE", RadioAction.RELEASE_PTT, "keybtn")
                 with ui.column().classes("keys"):
                     with ui.row().classes("gap-2"):
-                        self._button("CH +", RadioAction.CHANNEL_UP)
-                        self._button("CH -", RadioAction.CHANNEL_DOWN)
-                        self._button("CH16", RadioAction.SELECT_CHANNEL_16, "keybtn danger")
-                    self._button("SET WORK CH", RadioAction.SELECT_WORKING_CHANNEL)
+                        self._button("CH +", RadioUiAction.CHANNEL_UP)
+                        self._button("CH -", RadioUiAction.CHANNEL_DOWN)
+                        self._button("CH16", RadioAction.PRESS_CH16, "keybtn danger")
+                    self._button("SET WORK CH", RadioUiAction.SELECT_WORKING_CHANNEL)
                     self._button("POWER", RadioAction.POWER_ON)
-                    self._button("MONITOR", RadioAction.MONITOR)
+                    self._button("MONITOR", RadioUiAction.MONITOR)
                     self._button("DISTRESS COVER", RadioAction.OPEN_DISTRESS_COVER, "distress-cover", is_cover=True)
-                    self._button("DISTRESS", RadioAction.PRESS_DISTRESS, "keybtn danger")
+                    self._button("DISTRESS", RadioAction.HOLD_DISTRESS, "keybtn danger")
                     with ui.grid(columns=3).classes("keypad"):
-                        self._button("▲", RadioAction.CHANNEL_UP)
-                        self._button("OK", RadioAction.SELECT_WORKING_CHANNEL)
-                        self._button("▼", RadioAction.CHANNEL_DOWN)
-                        self._button("◀", RadioAction.MONITOR)
+                        self._button("▲", RadioUiAction.CHANNEL_UP)
+                        self._button("OK", RadioUiAction.SELECT_WORKING_CHANNEL)
+                        self._button("▼", RadioUiAction.CHANNEL_DOWN)
+                        self._button("◀", RadioUiAction.MONITOR)
                         self._button("MENU", RadioAction.OPEN_DISTRESS_COVER)
-                        self._button("▶", RadioAction.MONITOR)
+                        self._button("▶", RadioUiAction.MONITOR)
 
-    def _button(self, label: str, action: RadioAction, extra: str = "keybtn", *, is_cover: bool = False) -> None:
+    def _button(self, label: str, action: RadioAction | RadioUiAction, extra: str = "keybtn", *, is_cover: bool = False) -> None:
         def handle_click() -> None:
             if is_cover:
                 self._distress_cover_open = not self._distress_cover_open
