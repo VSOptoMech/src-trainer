@@ -12,6 +12,7 @@ from src_trainer.simulator_engine import (
     apply_device_penalties,
     correct_sequence_lines,
     evaluate_action,
+    should_record_action,
 )
 
 
@@ -64,6 +65,47 @@ class SimulatorEngineTests(unittest.TestCase):
         self.assertFalse(result.correct)
         self.assertTrue(result.mistake)
         self.assertIn("Wrong priority", result.feedback)
+
+    def test_practice_mistakes_do_not_advance_expected_sequence(self) -> None:
+        scenario = next(item for item in list_scenarios() if item.id == "dsc_distress_simple")
+        prior = [ActionEvent(action=RadioAction.POWER_ON)]
+
+        wrong = evaluate_action(
+            scenario,
+            0,
+            prior,
+            RadioAction.SET_CHANNEL,
+            "16",
+            SimulatorMode.practice,
+        )
+
+        self.assertTrue(wrong.mistake)
+        self.assertFalse(should_record_action(wrong, SimulatorMode.practice))
+
+        recovered = evaluate_action(
+            scenario,
+            0,
+            prior,
+            RadioAction.PRESS_CH16,
+            None,
+            SimulatorMode.practice,
+        )
+
+        self.assertTrue(recovered.correct)
+
+    def test_test_mode_records_mistakes_for_final_grading(self) -> None:
+        scenario = next(item for item in list_scenarios() if item.id == "dsc_distress_simple")
+        result = evaluate_action(
+            scenario,
+            0,
+            [ActionEvent(action=RadioAction.POWER_ON)],
+            RadioAction.SET_CHANNEL,
+            "16",
+            SimulatorMode.test,
+        )
+
+        self.assertTrue(result.mistake)
+        self.assertTrue(should_record_action(result, SimulatorMode.test))
 
     def test_correct_sequence_lines_exist(self) -> None:
         for scenario in list_scenarios():

@@ -65,6 +65,7 @@ class StaticSmokeTests(unittest.TestCase):
         css = (REPO_ROOT / "src_trainer/assets/app.css").read_text(encoding="utf-8")
         self.assertIn(".radio-faceplate", css)
         self.assertIn(".radio-soft-button", css)
+        self.assertIn(".radio-phrase .q-field__control", css)
 
 
 if __name__ == "__main__":

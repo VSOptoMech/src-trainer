@@ -421,6 +421,36 @@
   max-width: 520px;
 }
 
+.radio-phrase .q-field__control {
+  background: #202733 !important;
+  border-radius: 8px;
+  color: #e5e7eb !important;
+}
+
+.radio-phrase .q-field__control::before {
+  border-color: #aeb8c6 !important;
+}
+
+.radio-phrase .q-field__control::after {
+  border-color: #e5e7eb !important;
+}
+
+.radio-phrase .q-field__native,
+.radio-phrase .q-field__input,
+.radio-phrase input {
+  color: #f3f4f6 !important;
+  caret-color: #f3f4f6 !important;
+}
+
+.radio-phrase .q-field__label {
+  color: #cbd5e1 !important;
+}
+
+.radio-phrase .q-placeholder::placeholder,
+.radio-phrase input::placeholder {
+  color: #aeb8c6 !important;
+}
+
 @media (max-width: 1200px) {
   .sim-grid {
     grid-template-columns: 1fr;

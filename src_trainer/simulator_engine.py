@@ -83,6 +83,11 @@ def evaluate_action(
     return correctness_feedback
 
 
+def should_record_action(evaluation: ActionEvaluation, mode: SimulatorMode) -> bool:
+    """Return whether an action should advance the scenario action sequence."""
+    return mode == SimulatorMode.test or not evaluation.mistake
+
+
 def _correctness_feedback(
     scenario: Scenario,
     step_index: int,

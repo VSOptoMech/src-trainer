@@ -20,6 +20,7 @@ from src_trainer.simulator_engine import (
     apply_device_penalties,
     correct_sequence_lines,
     evaluate_action,
+    should_record_action,
     transcript_from_strings,
 )
 
@@ -46,6 +47,7 @@ def render() -> None:
         "transcript": [],
         "mistakes": 0,
         "device_mistakes": 0,
+        "procedure_mistakes": 0,
         "feedback": "",
         "assisted": False,
         "show_sequence": False,
@@ -100,6 +102,7 @@ def render() -> None:
         state["transcript"] = [TranscriptEntry(Speaker.system, f"Loaded scenario: {scenario.title}")]
         state["mistakes"] = 0
         state["device_mistakes"] = 0
+        state["procedure_mistakes"] = 0
         state["feedback"] = "Read the context, then power on the radio."
         state["assisted"] = False
         state["show_sequence"] = False
@@ -112,6 +115,21 @@ def render() -> None:
 
     def current_scenario() -> Scenario | None:
         return scenario_map[selected["id"]] if selected["id"] else None
+
+    def advance_step(*, automatic: bool) -> None:
+        scenario = current_scenario()
+        if not scenario:
+            return
+        if int(state["step"]) < len(scenario.steps) - 1:
+            state["step"] = int(state["step"]) + 1
+            step = scenario.steps[int(state["step"])]
+            label = "Auto-advanced" if automatic else "Moved"
+            add_transcript(Speaker.system, f"{label} to step {int(state['step']) + 1}: {step.title}")
+            if step.event:
+                add_transcript(Speaker.system, step.event)
+            state["feedback"] = step.objective or step.title
+        else:
+            set_feedback("Step complete. Finish the scenario when ready.", record=False)
 
     def add_action(action: RadioAction, value: str | None = None) -> None:
         scenario = current_scenario()
@@ -129,7 +147,9 @@ def render() -> None:
             current_mode(),
         )
         event = ActionEvent(action=action, value=value)
-        step_actions.append(event)
+        record_action = should_record_action(evaluation, current_mode())
+        if record_action:
+            step_actions.append(event)
 
         if action == RadioAction.SPEAK_PHRASE:
             add_transcript(Speaker.you, value or "")
@@ -138,9 +158,12 @@ def render() -> None:
 
         if evaluation.mistake and current_mode() == SimulatorMode.practice:
             state["mistakes"] = int(state["mistakes"]) + 1
+            state["procedure_mistakes"] = int(state["procedure_mistakes"]) + 1
         if current_mode() == SimulatorMode.practice and evaluation.feedback:
             state["feedback"] = evaluation.feedback
             add_transcript(Speaker.system, evaluation.feedback)
+        if record_action and evaluation.correct and len(step_actions) >= len(scenario.steps[step_index].expected_actions):
+            advance_step(automatic=True)
 
         render_panels()
 
@@ -186,24 +209,17 @@ def render() -> None:
         scenario = current_scenario()
         if not scenario:
             return
-        if int(state["step"]) < len(scenario.steps) - 1:
-            state["step"] = int(state["step"]) + 1
-            step = scenario.steps[int(state["step"])]
-            add_transcript(Speaker.system, f"Moved to step {int(state['step']) + 1}: {step.title}")
-            if step.event:
-                add_transcript(Speaker.system, step.event)
-            state["feedback"] = step.objective or step.title
-        else:
-            set_feedback("Last step reached. Finish the scenario when ready.", record=False)
+        advance_step(automatic=False)
         render_panels()
 
     def finish() -> None:
         scenario = current_scenario()
         if not scenario:
             return
+        live_penalties = int(state["device_mistakes"]) + int(state["procedure_mistakes"])
         result = apply_device_penalties(
             grade_scenario(scenario, actions_by_step(), hints_by_step()),
-            device_mistakes=int(state["device_mistakes"]),
+            device_mistakes=live_penalties,
             pass_score=scenario.pass_score,
         )
         state["summary"] = result
@@ -211,8 +227,8 @@ def render() -> None:
         state["show_sequence"] = True
         state["feedback"] = f"Final score: {result.score}/100 ({'PASS' if result.passed else 'FAIL'})"
         add_transcript(Speaker.system, state["feedback"])
-        if int(state["device_mistakes"]):
-            add_transcript(Speaker.system, f"Device operation penalties: {state['device_mistakes']}")
+        if live_penalties:
+            add_transcript(Speaker.system, f"Live operation penalties: {live_penalties}")
         for step_res in result.step_results:
             add_transcript(Speaker.system, f"Step {step_res.step_index + 1}: {step_res.feedback}")
         transcript_lines = [entry.as_text() for entry in transcript()]
@@ -315,6 +331,7 @@ def render() -> None:
                 ui.label(f"Mistakes: {state['mistakes']}")
                 if summary:
                     ui.label(f"Device penalties: {state['device_mistakes']}")
+                    ui.label(f"Procedure penalties: {state['procedure_mistakes']}")
                 ui.label(f"Assisted: {'yes' if state['assisted'] else 'no'}")
                 if summary:
                     ui.separator()
