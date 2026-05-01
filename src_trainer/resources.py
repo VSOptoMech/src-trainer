@@ -6,6 +6,7 @@ from importlib import resources
 import json
 
 from src_trainer.models import Scenario
+from src_trainer.scenario_details import SCENARIO_DETAILS
 
 SCENARIOS_PACKAGE = "src_trainer.scenarios"
 
@@ -18,5 +19,6 @@ def list_scenarios() -> list[Scenario]:
         if entry.is_file() and entry.name.endswith(".json"):
             with entry.open("r", encoding="utf-8") as handle:
                 payload = json.load(handle)
+                payload.update(SCENARIO_DETAILS.get(payload.get("id", ""), {}))
                 scenarios.append(Scenario.model_validate(payload))
     return scenarios

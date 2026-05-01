@@ -48,7 +48,7 @@ class StaticSmokeTests(unittest.TestCase):
             "learn_page",
             "simulator_page",
             "progress_page",
-            "glossary_page",
+            "settings_page",
         }:
             self.assertIn(expected, function_names)
 

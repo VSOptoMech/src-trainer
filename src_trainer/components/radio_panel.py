@@ -3,21 +3,129 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from enum import StrEnum
 
 from nicegui import ui
 
+from src_trainer.components.radio_state import MAX_CHANNEL, MIN_CHANNEL, RadioCommand, RadioState
 from src_trainer.models import RadioAction
 
+_STYLES_ADDED = False
 
-class RadioUiAction(StrEnum):
-    """UI-only controls emitted by the radio faceplate."""
 
-    CHANNEL_UP = "CHANNEL_UP"
-    CHANNEL_DOWN = "CHANNEL_DOWN"
-    MONITOR = "MONITOR"
-    CLOSE_DISTRESS_COVER = "CLOSE_DISTRESS_COVER"
-    SELECT_WORKING_CHANNEL = "SELECT_WORKING_CHANNEL"
+class RadioDisplay:
+    """LCD display for the simulated VHF radio."""
+
+    def __init__(self, state: RadioState, *, dsc_mode: str = "WATCH") -> None:
+        self.state = state
+        self.dsc_mode = dsc_mode
+
+    def render(self) -> None:
+        with ui.column().classes(f"radio-lcd {'radio-lcd-off' if not self.state.power else ''}"):
+            if not self.state.power:
+                ui.element("div").classes("radio-off-screen")
+                return
+
+            with ui.row().classes("radio-lcd-status"):
+                ui.label("TX").classes(f"lcd-pill {'active' if self.state.tx else ''}")
+                ui.label("RX").classes(f"lcd-pill {'active' if self.state.rx else ''}")
+                ui.label("HI" if self.state.hi_power else "LO").classes("lcd-pill active")
+                ui.label("STBY" if self.state.standby else "TX MODE").classes("lcd-pill")
+                ui.label(self.dsc_mode).classes("lcd-pill")
+            with ui.row().classes("radio-lcd-main"):
+                with ui.column().classes("radio-lcd-meta"):
+                    ui.label("25W  USA")
+                    ui.label("25 48N")
+                    ui.label("080 12W")
+                    ui.label("12:00 LT")
+                ui.label(f"{self.state.channel:02d}").classes("radio-channel")
+            with ui.row().classes("radio-soft-labels"):
+                for label in ("SCAN", "DW", "HI/LO", "CH/WX"):
+                    ui.label(label).classes("radio-soft-label")
+
+
+class RadioControls:
+    """Clickable controls around the display."""
+
+    def __init__(
+        self,
+        state: RadioState,
+        *,
+        on_command: Callable[[Callable[[], RadioCommand | None]], None],
+        on_change: Callable[[Callable[[], None]], None],
+    ) -> None:
+        self.state = state
+        self.on_command = on_command
+        self.on_change = on_change
+
+    def render_left(self) -> None:
+        with ui.column().classes("radio-left"):
+            with ui.column().classes("radio-speaker"):
+                for _ in range(12):
+                    ui.element("span")
+            self._command_button(
+                "DISTRESS COVER",
+                self.state.toggle_distress_cover,
+                "radio-distress-cover open" if self.state.distress_cover_open else "radio-distress-cover",
+            )
+            self._command_button("DISTRESS", self.state.hold_distress, "radio-distress")
+
+    def render_right(self) -> None:
+        with ui.column().classes("radio-right"):
+            self._command_button("16/C", self.state.press_ch16, "radio-ch16")
+            with ui.grid(columns=2).classes("radio-control-grid"):
+                self._state_button("CH +", self.state.channel_up, "radio-key")
+                self._state_button("CH -", self.state.channel_down, "radio-key")
+                self._state_button("HI/LO", self.state.toggle_hi_lo, "radio-key")
+                self._command_button("SET CH", self.state.set_working_channel, "radio-key")
+            ui.number(
+                "Channel",
+                value=self.state.channel,
+                min=MIN_CHANNEL,
+                max=MAX_CHANNEL,
+                on_change=lambda event: self.on_change(lambda: self.state.enter_channel(event.value)),
+            ).classes("radio-channel-entry").props("dense outlined")
+            self._command_button(
+                "PWR",
+                self.state.toggle_power,
+                f"radio-knob {'powered' if self.state.power else ''}",
+            )
+
+    def render_hand_mic(self) -> None:
+        with ui.column().classes("radio-mic"):
+            ui.label("Hand Mic").classes("radio-mic-title")
+            with ui.row().classes("radio-mic-buttons"):
+                self._command_button("PTT", self.state.hold_ptt, "radio-ptt")
+                self._command_button("Release", self.state.release_ptt, "radio-release")
+            ui.input(
+                "Phrase to transmit",
+                value=self.state.phrase,
+                on_change=lambda event: setattr(self.state, "phrase", event.value or ""),
+            ).classes("radio-phrase").props("outlined dense")
+            self._command_button("Transmit phrase", self.state.transmit_phrase, "radio-transmit")
+
+    def _command_button(
+        self,
+        label: str,
+        command: Callable[[], RadioCommand | None],
+        classes: str,
+        *,
+        disabled: bool = False,
+    ) -> None:
+        button = ui.button(label, on_click=lambda: self.on_command(command)).classes(classes).props("unelevated")
+        if disabled:
+            button.props("disable")
+
+    def _state_button(
+        self,
+        label: str,
+        mutation: Callable[[], None],
+        classes: str,
+        *,
+        disabled: bool = False,
+    ) -> None:
+        button = ui.button(label, on_click=lambda: self.on_change(mutation)).classes(classes).props("unelevated")
+        if disabled:
+            button.props("disable")
 
 
 class RadioPanel:
@@ -26,107 +134,114 @@ class RadioPanel:
     def __init__(
         self,
         *,
-        on_action: Callable[[RadioAction | RadioUiAction, str | None], None],
-        channel: str,
-        powered: bool = True,
-        tx_active: bool = False,
-        rx_active: bool = True,
-        hi_power: bool = True,
+        state: RadioState,
+        on_action: Callable[[RadioAction, str | None], None],
+        on_change: Callable[[], None],
+        on_feedback: Callable[[str, bool], None] | None = None,
         dsc_mode: str = "WATCH",
     ) -> None:
+        self.state = state
         self.on_action = on_action
-        self.channel = channel
-        self.powered = powered
-        self.tx_active = tx_active
-        self.rx_active = rx_active
-        self.hi_power = hi_power
+        self.on_change = on_change
+        self.on_feedback = on_feedback or (lambda _message, _mistake: None)
         self.dsc_mode = dsc_mode
-        self._distress_cover_open = False
-        self._distress_cover = None
 
     def render(self) -> None:
-        ui.add_head_html(
-            """
-            <style>
-            .radio-faceplate{background:linear-gradient(160deg,#2a2f36,#171a20 45%,#0f1217);border:2px solid #404752;border-radius:14px;box-shadow:0 12px 24px rgba(0,0,0,.45),inset 0 1px 1px rgba(255,255,255,.08);padding:14px;color:#d7dde8;max-width:860px;width:100%}
-            .radio-grid{display:grid;grid-template-columns:1.4fr 1.2fr;gap:12px}
-            .lcd{background:#7d9a73;border:3px solid #2f372f;border-radius:8px;padding:8px 10px;color:#0f1a0e;box-shadow:inset 0 2px 4px rgba(0,0,0,.35);font-family:monospace}
-            .ch{font-size:2rem;font-weight:700;letter-spacing:2px}
-            .status{display:flex;gap:8px;font-size:.75rem;flex-wrap:wrap}
-            .pill{padding:2px 6px;border-radius:999px;background:#2f353f;color:#b7c0cf;border:1px solid #4a5260}
-            .pill.on{background:#13451f;color:#cbf9d1;border-color:#2d8650}
-            .pill.warn{background:#4d120f;color:#ffd6d2;border-color:#c73c34}
-            .keys,.soft{display:grid;gap:6px}
-            .soft{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:8px}
-            .keybtn,.round,.ptt{background:linear-gradient(180deg,#5a6371,#39404b);border:1px solid #7c8797;border-bottom-color:#222a34;color:#f2f5fb;border-radius:8px;padding:8px 6px;text-align:center;cursor:pointer;user-select:none}
-            .keybtn:hover,.round:hover,.ptt:hover{filter:brightness(1.08)}
-            .keybtn:active,.round:active,.ptt:active{transform:translateY(1px);filter:brightness(.92)}
-            .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-            .speaker{border:2px solid #303743;border-radius:10px;padding:10px;height:190px;background:#12161d;display:grid;grid-template-columns:repeat(8,1fr);gap:4px;align-content:start}
-            .speaker i{height:4px;background:#2f3744;border-radius:3px;display:block}
-            .danger{background:linear-gradient(180deg,#d3473f,#8f1f1d)!important;border-color:#f16f67!important;font-weight:700}
-            .distress-cover{background:linear-gradient(180deg,#bd2f2f,#7d1919);border:1px solid #f08f8f;border-radius:8px;padding:8px;text-align:center;color:#ffe8e8;font-weight:700;cursor:pointer}
-            .distress-cover.open{opacity:.5;transform:translateY(-3px)}
-            .round-wrap{display:flex;gap:10px;margin-top:8px}
-            .round{width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem}
-            .ptt{height:74px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;background:linear-gradient(180deg,#ffd976,#c5971f);color:#2f2200}
-            @media (max-width: 1024px){.radio-grid{grid-template-columns:1fr}.speaker{height:120px}}
-            </style>
-            """
+        _ensure_styles()
+        controls = RadioControls(
+            self.state,
+            on_command=self._handle_command,
+            on_change=self._handle_state_change,
         )
-        with ui.column().classes("radio-faceplate"):
-            ui.label("Marine VHF/DSC Radio").classes("text-caption text-blue-2")
-            with ui.grid(columns=2).classes("radio-grid"):
-                with ui.column():
-                    with ui.column().classes("lcd"):
-                        with ui.row().classes("justify-between items-end"):
-                            ui.label("CH").classes("text-xs")
-                            ui.label(self.channel).classes("ch")
-                        with ui.row().classes("status"):
-                            ui.label("TX").classes(f"pill {'on' if self.tx_active else ''}")
-                            ui.label("RX").classes(f"pill {'on' if self.rx_active else ''}")
-                            ui.label("PWR ON" if self.powered else "PWR OFF").classes(f"pill {'on' if self.powered else 'warn'}")
-                            ui.label("HI" if self.hi_power else "LO").classes("pill")
-                        ui.label(f"DSC/MENU: {self.dsc_mode}").classes("text-xs")
-                    with ui.row().classes("soft"):
-                        self._button("SCAN", RadioUiAction.CHANNEL_UP)
-                        self._button("WATCH", RadioUiAction.MONITOR)
-                        self._button("MENU", RadioAction.OPEN_DISTRESS_COVER)
-                        self._button("BACK", RadioUiAction.CLOSE_DISTRESS_COVER)
-                    with ui.row().classes("round-wrap"):
-                        self._button("VOL", RadioAction.POWER_ON, "round")
-                        self._button("SQL", RadioUiAction.MONITOR, "round")
-                    with ui.column().classes("speaker"):
-                        for _ in range(56):
-                            ui.html("<i></i>")
-                    self._button("PTT", RadioAction.HOLD_PTT, "ptt")
-                    self._button("RELEASE", RadioAction.RELEASE_PTT, "keybtn")
-                with ui.column().classes("keys"):
-                    with ui.row().classes("gap-2"):
-                        self._button("CH +", RadioUiAction.CHANNEL_UP)
-                        self._button("CH -", RadioUiAction.CHANNEL_DOWN)
-                        self._button("CH16", RadioAction.PRESS_CH16, "keybtn danger")
-                    self._button("SET WORK CH", RadioUiAction.SELECT_WORKING_CHANNEL)
-                    self._button("POWER", RadioAction.POWER_ON)
-                    self._button("MONITOR", RadioUiAction.MONITOR)
-                    self._button("DISTRESS COVER", RadioAction.OPEN_DISTRESS_COVER, "distress-cover", is_cover=True)
-                    self._button("DISTRESS", RadioAction.HOLD_DISTRESS, "keybtn danger")
-                    with ui.grid(columns=3).classes("keypad"):
-                        self._button("▲", RadioUiAction.CHANNEL_UP)
-                        self._button("OK", RadioUiAction.SELECT_WORKING_CHANNEL)
-                        self._button("▼", RadioUiAction.CHANNEL_DOWN)
-                        self._button("◀", RadioUiAction.MONITOR)
-                        self._button("MENU", RadioAction.OPEN_DISTRESS_COVER)
-                        self._button("▶", RadioUiAction.MONITOR)
+        with ui.column().classes("radio-shell"):
+            with ui.row().classes("radio-faceplate"):
+                controls.render_left()
+                with ui.column().classes("radio-center"):
+                    ui.label("VHF Marine Radio").classes("radio-brand")
+                    RadioDisplay(self.state, dsc_mode=self.dsc_mode).render()
+                    with ui.row().classes("radio-soft-buttons"):
+                        for _ in range(4):
+                            ui.element("span")
+                controls.render_right()
+            controls.render_hand_mic()
 
-    def _button(self, label: str, action: RadioAction | RadioUiAction, extra: str = "keybtn", *, is_cover: bool = False) -> None:
-        def handle_click() -> None:
-            if is_cover:
-                self._distress_cover_open = not self._distress_cover_open
-                if self._distress_cover is not None:
-                    self._distress_cover.classes(replace=f"distress-cover {'open' if self._distress_cover_open else ''}")
-            self.on_action(action, None)
+    def _handle_command(self, command_factory: Callable[[], RadioCommand | None]) -> None:
+        command = command_factory()
+        self._emit_feedback()
+        if command is None:
+            self.on_change()
+            return
+        self.on_action(command.action, command.value)
 
-        element = ui.button(label, on_click=handle_click).classes(extra).props("unelevated")
-        if is_cover:
-            self._distress_cover = element
+    def _handle_state_change(self, mutation: Callable[[], None]) -> None:
+        mutation()
+        self._emit_feedback()
+        self.on_change()
+
+    def _emit_feedback(self) -> None:
+        if self.state.last_feedback:
+            self.on_feedback(self.state.last_feedback, self.state.last_mistake)
+
+
+def _ensure_styles() -> None:
+    global _STYLES_ADDED
+    if _STYLES_ADDED:
+        return
+    _STYLES_ADDED = True
+    ui.add_head_html(
+        """
+        <style>
+        .radio-shell{width:min(100%,920px);margin-inline:auto;gap:12px}
+        .radio-faceplate{width:100%;align-items:stretch;gap:14px;padding:18px;border-radius:22px;background:linear-gradient(160deg,#252a33,#11151d 55%,#090b10);border:2px solid #414855;box-shadow:0 18px 32px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.08);color:#e7edf7}
+        .radio-left{width:150px;gap:10px;justify-content:space-between}
+        .radio-speaker{height:154px;padding:12px;border-radius:12px;background:#07090d;border:1px solid #313845;gap:7px;justify-content:center}
+        .radio-speaker span{display:block;height:8px;border-radius:999px;background:linear-gradient(90deg,#2a303a,#11151b)}
+        .radio-distress-cover,.radio-distress{width:100%;min-height:42px;border-radius:8px;font-size:.72rem;font-weight:700;white-space:normal}
+        .radio-distress-cover{background:linear-gradient(180deg,#b73535,#751b1b)!important;border:1px solid #ec7979;color:#ffe8e8!important}
+        .radio-distress-cover.open{transform:translateY(-2px);filter:brightness(1.12)}
+        .radio-distress{background:linear-gradient(180deg,#ff604d,#9e221c)!important;border:1px solid #ff8b7e;color:#fff5f2!important}
+        .radio-center{flex:1;min-width:300px;gap:8px}
+        .radio-brand{font-size:.78rem;text-transform:uppercase;letter-spacing:0;color:#cfd6e2;text-align:center}
+        .radio-lcd{min-height:210px;border-radius:12px;padding:12px 14px;background:linear-gradient(180deg,#efb74d,#d69528);border:4px solid #15191f;box-shadow:inset 0 3px 8px rgba(0,0,0,.35);color:#161007;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+        .radio-lcd-off{background:#171a14;color:transparent}
+        .radio-off-screen{height:178px;border-radius:6px;background:linear-gradient(180deg,#11140f,#070807)}
+        .radio-lcd-status{align-items:center;gap:6px;font-size:.75rem;flex-wrap:wrap}
+        .lcd-pill{padding:2px 6px;border-radius:3px;background:rgba(31,23,7,.2);border:1px solid rgba(31,23,7,.35);font-weight:700}
+        .lcd-pill.active{background:#201705;color:#f1b84d}
+        .radio-lcd-main{align-items:center;justify-content:space-between;gap:16px;flex:1}
+        .radio-lcd-meta{gap:0;font-size:1rem;line-height:1.15;font-weight:700}
+        .radio-channel{font-size:7rem;line-height:.9;font-weight:900;letter-spacing:0;color:#161007}
+        .radio-soft-labels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:auto}
+        .radio-soft-label{padding:3px 4px;text-align:center;border-radius:3px;background:#201705;color:#f1b84d;font-size:.78rem;font-weight:700}
+        .radio-soft-buttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding-inline:8px}
+        .radio-soft-buttons span{height:24px;border-radius:8px;background:linear-gradient(180deg,#6a707b,#353b45);border:1px solid #9299a6;box-shadow:inset 0 -2px 2px rgba(0,0,0,.4)}
+        .radio-right{width:185px;align-items:center;justify-content:space-between;gap:10px}
+        .radio-control-grid{width:100%;gap:8px}
+        .radio-key,.radio-ch16,.radio-knob,.radio-ptt,.radio-release,.radio-transmit{border:1px solid #838b98;color:#f6f8fc!important;background:linear-gradient(180deg,#5b6370,#303741)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.18);font-weight:700}
+        .radio-key{min-height:42px;border-radius:9px;font-size:.78rem}
+        .radio-channel-entry{width:100%}
+        .radio-ch16{width:74px;height:74px;border-radius:999px!important;background:linear-gradient(180deg,#4f93d8,#1760a9)!important;border-color:#9ed1ff!important}
+        .radio-knob{width:96px;height:96px;border-radius:999px!important;background:radial-gradient(circle at 35% 30%,#8c94a2,#252b33 62%,#0a0d11)!important;border:4px solid #68707c}
+        .radio-knob.powered{box-shadow:0 0 0 3px rgba(239,183,77,.2),inset 0 1px 0 rgba(255,255,255,.18)}
+        .radio-mic{width:100%;padding:12px;border-radius:14px;background:#151922;border:1px solid #3a424f;color:#e7edf7}
+        .radio-mic-title{font-size:.82rem;text-transform:uppercase;letter-spacing:0;color:#cfd6e2}
+        .radio-mic-buttons{gap:8px;align-items:center}
+        .radio-ptt{min-width:112px;min-height:54px;border-radius:12px;background:linear-gradient(180deg,#f1c45b,#a87918)!important;color:#231900!important}
+        .radio-release,.radio-transmit{min-height:42px;border-radius:9px}
+        .radio-phrase{width:100%;max-width:520px}
+        @media (max-width: 900px){
+          .radio-faceplate{flex-direction:column}
+          .radio-left,.radio-right{width:100%;flex-direction:row;align-items:center}
+          .radio-speaker{width:40%;min-width:160px}
+          .radio-control-grid{max-width:260px}
+          .radio-channel{font-size:5.5rem}
+        }
+        @media (max-width: 560px){
+          .radio-left,.radio-right{flex-direction:column}
+          .radio-speaker{width:100%}
+          .radio-lcd-main{align-items:flex-start}
+          .radio-channel{font-size:4.2rem}
+        }
+        </style>
+        """
+    )

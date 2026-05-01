@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class AppInfo(BaseModel):
@@ -40,6 +40,25 @@ class ActionEvent(BaseModel):
     value: str | None = None
 
 
+class ScenarioContext(BaseModel):
+    what_is_happening: str = ""
+    concerns: str = "your vessel"
+    user_role: str = "radio operator"
+    known_vessels: list[str] = Field(default_factory=list)
+    position: str | None = None
+    risk_level: str = "training"
+    current_objective: str = ""
+
+
+class CorrectSequenceItem(BaseModel):
+    title: str
+    action: RadioAction | None = None
+    value: str | None = None
+    message_structure: str = ""
+    why_it_matters: str = ""
+    common_mistakes: list[str] = Field(default_factory=list)
+
+
 class ScenarioStep(BaseModel):
     title: str
     expected_actions: list[ActionEvent] = Field(default_factory=list)
@@ -48,6 +67,10 @@ class ScenarioStep(BaseModel):
     feedback_correct: str
     feedback_incorrect: str
     score_weight: int = Field(default=10, ge=1)
+    event: str | None = None
+    objective: str | None = None
+    message_elements: list[str] = Field(default_factory=list)
+    common_mistakes: list[str] = Field(default_factory=list)
 
 
 class Scenario(BaseModel):
@@ -60,3 +83,43 @@ class Scenario(BaseModel):
     learning_objectives: list[str]
     steps: list[ScenarioStep]
     pass_score: int = Field(ge=1, le=100)
+    context: ScenarioContext = Field(default_factory=ScenarioContext)
+    initial_conditions: list[str] = Field(default_factory=list)
+    incoming_events: list[str] = Field(default_factory=list)
+    required_assessment: str = ""
+    correct_procedure: str = ""
+    expected_message_elements: list[str] = Field(default_factory=list)
+    possible_wrong_actions: list[str] = Field(default_factory=list)
+    final_explanation: str = ""
+    correct_sequence: list[CorrectSequenceItem] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def fill_training_metadata(self) -> "Scenario":
+        if not self.context.what_is_happening:
+            self.context.what_is_happening = self.situation
+        if not self.context.current_objective and self.steps:
+            self.context.current_objective = self.steps[0].objective or self.steps[0].title
+        if not self.initial_conditions:
+            self.initial_conditions = [self.situation]
+        if not self.required_assessment:
+            self.required_assessment = "Assess the signal priority, choose the correct channel, and transmit only when appropriate."
+        if not self.correct_procedure:
+            self.correct_procedure = "Follow the expected radio sequence for this scenario and keep transmissions brief."
+        if not self.final_explanation:
+            self.final_explanation = "The correct outcome uses the right priority signal, channel, and message structure without unnecessary transmissions."
+        if not self.correct_sequence:
+            sequence: list[CorrectSequenceItem] = []
+            for step in self.steps:
+                for expected in step.expected_actions:
+                    sequence.append(
+                        CorrectSequenceItem(
+                            title=step.title,
+                            action=expected.action,
+                            value=expected.value,
+                            message_structure=", ".join(step.message_elements or self.expected_message_elements),
+                            why_it_matters=step.objective or step.feedback_correct,
+                            common_mistakes=step.common_mistakes or self.possible_wrong_actions,
+                        )
+                    )
+            self.correct_sequence = sequence
+        return self
