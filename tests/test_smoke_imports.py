@@ -58,6 +58,14 @@ class StaticSmokeTests(unittest.TestCase):
         self.assertIn("src_trainer.scenarios", package_data)
         self.assertIn("*.json", package_data.get("src_trainer.scenarios", []))
 
+    def test_app_stylesheet_is_packaged(self) -> None:
+        pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        package_data = pyproject.get("tool", {}).get("setuptools", {}).get("package-data", {})
+        self.assertIn("assets/*", package_data.get("src_trainer", []))
+        css = (REPO_ROOT / "src_trainer/assets/app.css").read_text(encoding="utf-8")
+        self.assertIn(".radio-faceplate", css)
+        self.assertIn(".radio-soft-button", css)
+
 
 if __name__ == "__main__":
     unittest.main()

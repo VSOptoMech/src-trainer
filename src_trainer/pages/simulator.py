@@ -23,8 +23,6 @@ from src_trainer.simulator_engine import (
     transcript_from_strings,
 )
 
-_STYLES_ADDED = False
-
 
 def _initial_channel_for_scenario(scenario: Scenario) -> int:
     for step in scenario.steps:
@@ -37,7 +35,6 @@ def _initial_channel_for_scenario(scenario: Scenario) -> int:
 
 
 def render() -> None:
-    _ensure_styles()
     scenarios = list_scenarios()
     scenario_map = {s.id: s for s in scenarios}
     selected = {"id": scenarios[0].id if scenarios else ""}
@@ -335,33 +332,3 @@ def render() -> None:
 
     if scenarios:
         set_scenario(selected["id"])
-
-
-def _ensure_styles() -> None:
-    global _STYLES_ADDED
-    if _STYLES_ADDED:
-        return
-    _STYLES_ADDED = True
-    ui.add_head_html(
-        """
-        <style>
-        .sim-topbar{width:100%;align-items:center;gap:10px}
-        .sim-select{min-width:260px;max-width:420px}
-        .sim-mode{min-width:170px}
-        .sim-grid{display:grid!important;grid-template-columns:minmax(240px,1fr) minmax(420px,2fr) minmax(260px,1fr);gap:16px;align-items:start;width:100%}
-        .sim-left,.sim-center,.sim-right{width:100%;gap:10px}
-        .sim-panel{width:100%;gap:8px;padding:12px;border:1px solid #d7dce3;border-radius:8px;background:#ffffff}
-        .panel-title{font-size:1.1rem;font-weight:700}
-        .panel-title-small{font-weight:700}
-        .context-main{font-weight:700}
-        .command-row{gap:8px;align-items:center;flex-wrap:wrap}
-        .helper-text{font-size:.85rem;color:#5f6874}
-        .feedback-text{font-weight:700;color:#263240}
-        .transcript-panel{max-height:420px;overflow:auto}
-        .transcript-entry{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.82rem;line-height:1.3}
-        .sequence-panel{max-height:360px;overflow:auto}
-        .sequence-line{font-size:.88rem;line-height:1.35}
-        @media (max-width: 1200px){.sim-grid{grid-template-columns:1fr}.sim-select,.sim-mode{max-width:100%;width:100%}}
-        </style>
-        """
-    )

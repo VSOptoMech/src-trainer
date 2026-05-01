@@ -32,6 +32,9 @@ class RadioState:
     rx: bool = True
     hi_power: bool = True
     standby: bool = False
+    scan: bool = False
+    dual_watch: bool = False
+    weather_mode: bool = False
     distress_cover_open: bool = False
     phrase: str = ""
     last_feedback: str = ""
@@ -48,6 +51,9 @@ class RadioState:
         self.rx = True
         self.hi_power = True
         self.standby = False
+        self.scan = False
+        self.dual_watch = False
+        self.weather_mode = False
         self.distress_cover_open = False
         self.phrase = ""
         self._set_feedback("")
@@ -99,6 +105,28 @@ class RadioState:
             return
         self.hi_power = not self.hi_power
         self._set_feedback(f"Transmit power set to {'HI' if self.hi_power else 'LO'}.")
+
+    def toggle_scan(self) -> None:
+        if not self._require_power():
+            return
+        self.scan = not self.scan
+        if self.scan:
+            self.dual_watch = False
+        self._set_feedback(f"Scan {'enabled' if self.scan else 'disabled'}.")
+
+    def toggle_dual_watch(self) -> None:
+        if not self._require_power():
+            return
+        self.dual_watch = not self.dual_watch
+        if self.dual_watch:
+            self.scan = False
+        self._set_feedback(f"Dual watch {'enabled' if self.dual_watch else 'disabled'}.")
+
+    def toggle_weather_mode(self) -> None:
+        if not self._require_power():
+            return
+        self.weather_mode = not self.weather_mode
+        self._set_feedback(f"Weather channel mode {'enabled' if self.weather_mode else 'disabled'}.")
 
     def toggle_distress_cover(self) -> RadioCommand | None:
         self.distress_cover_open = not self.distress_cover_open

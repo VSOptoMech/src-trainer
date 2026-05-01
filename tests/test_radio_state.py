@@ -73,6 +73,28 @@ class RadioStateTests(unittest.TestCase):
         self.assertIsNotNone(command)
         self.assertEqual(RadioAction.PRESS_CH16, command.action)
 
+    def test_soft_keys_are_stateful_and_power_gated(self) -> None:
+        radio = RadioState()
+
+        radio.toggle_scan()
+        self.assertFalse(radio.scan)
+        self.assertEqual(RADIO_OFF_MESSAGE, radio.last_feedback)
+        self.assertTrue(radio.last_mistake)
+
+        radio.toggle_power()
+        radio.toggle_scan()
+        self.assertTrue(radio.scan)
+
+        radio.toggle_dual_watch()
+        self.assertTrue(radio.dual_watch)
+        self.assertFalse(radio.scan)
+
+        radio.toggle_weather_mode()
+        self.assertTrue(radio.weather_mode)
+
+        radio.toggle_hi_lo()
+        self.assertFalse(radio.hi_power)
+
     def test_powered_off_commands_are_ignored_except_cover(self) -> None:
         radio = RadioState(channel=72)
 

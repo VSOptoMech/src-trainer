@@ -1,11 +1,16 @@
 """NiceGUI application entrypoint."""
 
+from pathlib import Path
 import socket
 
-from nicegui import ui
+from nicegui import app as nicegui_app, ui
 
 from src_trainer.db import DB_PATH, init_db
 from src_trainer.pages import dashboard, learn, progress, settings, simulator
+
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+nicegui_app.add_static_files("/assets", ASSETS_DIR)
+ui.add_head_html('<link rel="stylesheet" href="/assets/app.css">', shared=True)
 
 
 def _navbar() -> None:
