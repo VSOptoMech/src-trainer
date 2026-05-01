@@ -1,11 +1,16 @@
 """NiceGUI application entrypoint."""
 
+from pathlib import Path
 import socket
 
-from nicegui import ui
+from nicegui import app as nicegui_app, ui
 
 from src_trainer.db import DB_PATH, init_db
-from src_trainer.pages import dashboard, glossary, learn, progress, simulator
+from src_trainer.pages import dashboard, learn, progress, settings, simulator
+
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+nicegui_app.add_static_files("/assets", ASSETS_DIR)
+ui.add_head_html('<link rel="stylesheet" href="/assets/app.css">', shared=True)
 
 
 def _navbar() -> None:
@@ -16,7 +21,7 @@ def _navbar() -> None:
             ui.button("Learn", on_click=lambda: ui.navigate.to("/learn"))
             ui.button("Simulator", on_click=lambda: ui.navigate.to("/simulator"))
             ui.button("Progress", on_click=lambda: ui.navigate.to("/progress"))
-            ui.button("Glossary", on_click=lambda: ui.navigate.to("/glossary"))
+            ui.button("Settings/Quit", on_click=lambda: ui.navigate.to("/settings"))
 
 
 def _page_container(renderer) -> None:
@@ -47,7 +52,12 @@ def progress_page() -> None:
 
 @ui.page("/glossary")
 def glossary_page() -> None:
-    _page_container(glossary.render)
+    ui.navigate.to("/learn")
+
+
+@ui.page("/settings")
+def settings_page() -> None:
+    _page_container(settings.render)
 
 
 def _can_bind_port(host: str, port: int) -> bool:
