@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from src_trainer.models import ActionEvent, Scenario
+from src_trainer.models import ActionEvent, RadioAction, Scenario
+from src_trainer.phrase_matching import phrase_matches_expected
 
 
 @dataclass
@@ -61,9 +62,10 @@ def grade_scenario(
             if actual.action != expected_action.action:
                 mistakes += 1
                 score -= 2
-            elif expected_action.value is not None and (actual.value or "").strip().lower() != expected_action.value.strip().lower():
-                mistakes += 1
-                score -= 1
+            elif expected_action.value is not None:
+                if not _value_matches(actual, expected_action):
+                    mistakes += 1
+                    score -= 1
 
         extra_actions = max(0, len(provided) - len(expected))
         mistakes += extra_actions
@@ -93,3 +95,9 @@ def grade_scenario(
         passed=normalized >= scenario.pass_score,
         step_results=step_results,
     )
+
+
+def _value_matches(actual: ActionEvent, expected: ActionEvent) -> bool:
+    if expected.action == RadioAction.SPEAK_PHRASE:
+        return phrase_matches_expected(actual.value or "", expected.value or "")
+    return (actual.value or "").strip().lower() == (expected.value or "").strip().lower()

@@ -8,6 +8,7 @@ from enum import StrEnum
 
 from src_trainer.grading import GradeResult
 from src_trainer.models import ActionEvent, RadioAction, Scenario, ScenarioCategory
+from src_trainer.phrase_matching import phrase_matches_expected, phrase_tokens
 
 
 class SimulatorMode(StrEnum):
@@ -117,31 +118,45 @@ def _correctness_feedback(
         )
 
     if expected_action.value is not None:
-        actual_value = (value or "").strip().lower()
-        expected_value = expected_action.value.strip().lower()
-        if actual_value != expected_value:
-            if action == RadioAction.SET_CHANNEL:
+        if action == RadioAction.SET_CHANNEL:
+            actual_value = (value or "").strip().lower()
+            expected_value = expected_action.value.strip().lower()
+            if actual_value != expected_value:
                 return ActionEvaluation(
                     False,
                     f"Wrong channel. Expected channel {expected_action.value}.",
                     True,
                 )
-            return ActionEvaluation(
-                False,
-                f"Message content does not match the expected structure for step {step_index + 1}.",
-                True,
-            )
+        elif action == RadioAction.SPEAK_PHRASE:
+            if not phrase_matches_expected(value or "", expected_action.value):
+                return ActionEvaluation(
+                    False,
+                    f"Message content does not match the expected structure for step {step_index + 1}.",
+                    True,
+                )
+        else:
+            actual_value = (value or "").strip().lower()
+            expected_value = expected_action.value.strip().lower()
+            if actual_value != expected_value:
+                return ActionEvaluation(
+                    False,
+                    f"Message content does not match the expected structure for step {step_index + 1}.",
+                    True,
+                )
 
     return ActionEvaluation(True, "Correct action for the current step.")
 
 
 def _wrong_priority_feedback(scenario: Scenario, phrase: str) -> str:
-    normalized = phrase.lower()
-    if scenario.category == ScenarioCategory.distress and "pan-pan" in normalized:
+    tokens = set(phrase_tokens(phrase))
+    has_pan_pan = "pan" in tokens
+    has_mayday = "mayday" in tokens
+    has_securite = "securite" in tokens
+    if scenario.category == ScenarioCategory.distress and has_pan_pan:
         return "Wrong priority. This is a distress situation, so use MAYDAY rather than PAN-PAN."
-    if scenario.category == ScenarioCategory.urgency and "mayday" in normalized:
+    if scenario.category == ScenarioCategory.urgency and has_mayday:
         return "Wrong priority. This is urgent but not grave and imminent danger, so use PAN-PAN."
-    if scenario.category == ScenarioCategory.safety and ("mayday" in normalized or "pan-pan" in normalized):
+    if scenario.category == ScenarioCategory.safety and (has_mayday or has_pan_pan):
         return "Wrong priority. A navigation hazard should use SECURITE, not distress or urgency priority."
     return ""
 

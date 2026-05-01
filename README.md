@@ -35,6 +35,15 @@ uv run src-trainer
 
 The app opens at `http://127.0.0.1:8080`.
 
+## Run tests
+
+From a clean checkout, install the locked environment and run the test suite:
+
+```bash
+uv sync
+uv run pytest
+```
+
 ## Run directly from GitHub with uvx
 
 ```bash

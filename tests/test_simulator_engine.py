@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from src_trainer.grading import GradeResult
+from src_trainer.grading import GradeResult, grade_scenario
 from src_trainer.models import ActionEvent, RadioAction
 from src_trainer.resources import list_scenarios
 from src_trainer.simulator_engine import (
@@ -65,6 +65,50 @@ class SimulatorEngineTests(unittest.TestCase):
         self.assertFalse(result.correct)
         self.assertTrue(result.mistake)
         self.assertIn("Wrong priority", result.feedback)
+
+    def test_phrase_matching_accepts_punctuation_spacing_and_order_variants(self) -> None:
+        scenario = next(item for item in list_scenarios() if item.id == "securite_hazard")
+        prior = [ActionEvent(action=RadioAction.HOLD_PTT)]
+
+        for phrase in [
+            "Securite, floating hazard",
+            "floating hazard securite",
+            "  SÉCURITÉ: floating   hazard!  ",
+            "securite - hazard, floating",
+            "floating, securite hazard",
+        ]:
+            with self.subTest(phrase=phrase):
+                result = evaluate_action(
+                    scenario,
+                    1,
+                    prior,
+                    RadioAction.SPEAK_PHRASE,
+                    phrase,
+                    SimulatorMode.practice,
+                )
+
+                self.assertTrue(result.correct)
+                self.assertFalse(result.mistake)
+
+    def test_final_grading_uses_same_phrase_matching_rules(self) -> None:
+        scenario = next(item for item in list_scenarios() if item.id == "securite_hazard")
+        actions_by_step = [
+            [
+                ActionEvent(action=RadioAction.POWER_ON),
+                ActionEvent(action=RadioAction.PRESS_CH16),
+            ],
+            [
+                ActionEvent(action=RadioAction.HOLD_PTT),
+                ActionEvent(action=RadioAction.SPEAK_PHRASE, value="floating hazard securite"),
+                ActionEvent(action=RadioAction.RELEASE_PTT),
+            ],
+            [ActionEvent(action=RadioAction.SET_CHANNEL, value="16")],
+        ]
+
+        result = grade_scenario(scenario, actions_by_step)
+
+        self.assertTrue(result.passed)
+        self.assertEqual(0, result.mistakes)
 
     def test_practice_mistakes_do_not_advance_expected_sequence(self) -> None:
         scenario = next(item for item in list_scenarios() if item.id == "dsc_distress_simple")
